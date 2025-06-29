@@ -17,7 +17,6 @@ from pyrogram.types import Message
 from config import MONGO_DB as MONGODB_CONNECTION_STRING, LOG_GROUP
 import cv2
 from telethon import events, Button
-    
 
 # ------------- PDF WATERMARK IMPORTS --------------
 # Will give after 200 star on my repo or 100+ followers ...
@@ -34,13 +33,24 @@ async def get_msg(userbot, sender, edit_id, msg_link, i, message):
         msg_link = msg_link.split("?single")[0]
     msg_id = int(msg_link.split("/")[-1]) + int(i)
 
-    
+    # --- Improved Telegram link parsing section ---
     if 't.me/c/' in msg_link or 't.me/b/' in msg_link:
-        parts = msg_link.split("/")
-        if 't.me/b/' not in msg_link:
-            chat = int('-100' + str(parts[parts.index('c') + 1])) # topic group/subgroup support enabled
-        else:
-            chat = msg_link.split("/")[-2]       
+        parts = msg_link.strip("/").split("/")
+        try:
+            if 't.me/c/' in msg_link:
+                # Format: https://t.me/c/<id>/<msg_id>
+                idx = parts.index('c') + 1 if 'c' in parts else 3  # fallback to 3rd index
+                channel_id = parts[idx]
+                if not channel_id.startswith('-100'):
+                    chat = int('-100' + channel_id)
+                else:
+                    chat = int(channel_id)
+            elif 't.me/b/' in msg_link:
+                # Format: https://t.me/b/<username>/<msg_id>
+                chat = parts[parts.index('b') + 1] if 'b' in parts else parts[-2]
+        except (ValueError, IndexError):
+            await app.edit_message_text(sender, edit_id, "Invalid Telegram message link format.")
+            return
         file = ""
         try:
             chatx = message.chat.id
